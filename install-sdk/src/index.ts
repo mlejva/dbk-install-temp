@@ -18,7 +18,6 @@ app.post('/', (req, res) => {
   console.log(req.body)
   //const { recipe, data }: { recipe: string, data: any } = req.body
 
-  runTailwindRecipe()
 
 
 

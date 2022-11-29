@@ -1,6 +1,13 @@
 import path from 'path'
 import fs from 'fs'
-import { execSync } from 'child_process'
+import util from 'util'
+import { exec as nodeExec } from 'child_process'
+const exec = util.promisify(nodeExec);
+
+function printOut({ stdout, stderr }: { stdout: string, stderr: string }) {
+  if (stderr) console.error(stderr)
+  if (stdout) console.log(stdout)
+}
 
 class Context {
   constructor(
@@ -16,20 +23,29 @@ class Repo {
   pull(repo: string) {
   }
 
-  checkout(branch: string) {
-    // TODO: checkout to new branch
-    execSync(`git checkout -b ${branch}`, { cwd: this.ctx.rootDir })
+  async clone(cloneURL: string) {
+    await exec(`git clone ${cloneURL}`, { cwd: this.ctx.rootDir })
   }
 
-  createPullRequest(branch: string, title: string) {
-    // TODO: Commit & push to remote
-    execSync('git add .', {cwd: this.ctx.rootDir})
-    execSync('git commit -m "Add Tailwind"', {cwd: this.ctx.rootDir})
-    execSync(`git push -u origin ${branch}`, {cwd: this.ctx.rootDir})
+  async checkout(branch: string) {
+    // TODO: checkout to new branch
+    await exec(`git checkout -b ${branch}`, { cwd: this.ctx.rootDir })
+  }
 
+  async commitAndPush(branch: string) {
+    await exec('git add .', {cwd: this.ctx.rootDir})
+    await exec('git commit -m "Add Tailwind"', {cwd: this.ctx.rootDir})
+    await exec(`git push -u origin ${branch}`, {cwd: this.ctx.rootDir})
+  }
+
+  async createPullRequest(branch: string, title: string) {
+    // TODO: Commit & push to remote
+    await exec('git add .', {cwd: this.ctx.rootDir})
+    await exec('git commit -m "Add Tailwind"', {cwd: this.ctx.rootDir})
+    await exec(`git push -u origin ${branch}`, {cwd: this.ctx.rootDir})
 
     // TODO: run gh pr create --title "Pull request title"
-    execSync(`gh pr create --title "${title}" --body "This PR installs Tailwind"`, {cwd: this.ctx.rootDir})
+    await exec(`gh pr create --title "${title}" --body "This PR installs Tailwind"`, {cwd: this.ctx.rootDir})
   }
 }
 
@@ -38,8 +54,19 @@ class Cmd {
     private ctx: Context
   ){ }
 
-  run(cmd: string, ...args: string[]) {
-    execSync(`${cmd} ${args.join(' ')}`, { cwd: this.ctx.rootDir })
+  async run(cmd: string, ...args: string[]) {
+    const fullCmd = `${cmd} ${args.join(' ')}`
+    console.log(`\n>>> ${fullCmd}`)
+
+    // const out = await exec(fullCmd, {
+    //   cwd: this.ctx.rootDir,
+    // })
+    // printOut(out)
+    await exec(fullCmd, {
+      cwd: this.ctx.rootDir,
+    })
+
+    // execSync(`${cmd} ${args.join(' ')}`, { cwd: this.ctx.rootDir, stdio: 'inherit' })
   }
 }
 
@@ -47,6 +74,10 @@ class Filesystem {
   constructor(
     private ctx: Context
   ){ }
+
+  cd(path: string) {
+    this.ctx.rootDir = path
+  }
 
   write(filepath: string, content: string) {
     const p = path.join(this.ctx.rootDir, filepath)
@@ -67,7 +98,7 @@ class Filesystem {
   }
 }
 
-const ctx = new Context('/Users/vasekmlejnsky/Developer/testing-nextjs-app')
+const ctx = new Context('/code')
 
 const wizard = {
   repo: new Repo(ctx),
